@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ABOUT — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="back-link">
+        <a href="{{ url_for('landing') }}">Back to home</a>
+      </div>
+
+      <h1>ABOUT <em style="font-family: var(--font-serif); color: var(--fg-dim);">RAP RHYME HIGHLIGHTER</em></h1>
+      <p class="subtitle">
+        A local tool for visualizing rap rhyme schemes, timing, and wordplay.
+      </p>
+
+      <section class="section">
+        <h2>What it does</h2>
+        <p>This app helps you see how a verse is built:</p>
+        <ul>
+          <li><strong>Text mode</strong> colorizes rhyme families directly from pasted lyrics.</li>
+          <li><strong>Auto-align mode</strong> runs Whisper on your audio, aligns your lyrics to the performance, and scrolls the bar-by-bar view in sync.</li>
+          <li><strong>Track storage</strong> saves each run in a local SQLite database so you can inspect or analyze it later.</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>How rhyme detection works</h2>
+        <p>
+          Rhyme detection is based on phonemes, not just spelling. The app uses 
+          the CMU Pronouncing Dictionary and a fuzzy similarity score that:
+        </p>
+        <ul>
+          <li>Looks at the last few phonemes of each word.</li>
+          <li>Gives extra weight to the last stressed vowel (to capture assonance).</li>
+          <li>Groups words into rhyme families when the score exceeds a configurable threshold.</li>
+        </ul>
+        <p>
+          That means near-rhymes and bent pronunciations—like <code>egotistic</code> / 
+          <code>gifted</code>—can land in the same family when you use a looser threshold.
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>How audio alignment works</h2>
+        <p>In auto-align mode, the pipeline is roughly:</p>
+        <ul>
+          <li>Run Whisper on the audio to get a sequence of time-coded segments.</li>
+          <li>Align your pasted lyric lines to those segments using greedy text similarity.</li>
+          <li>Attach rhyme labeling and drive a scrolling, synchronized lyric view while the audio plays.</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>Data & privacy</h2>
+        <p>Everything is designed to run locally:</p>
+        <ul>
+          <li>Audio is processed on your machine via Whisper.</li>
+          <li>Tracks are stored in a local SQLite file at <code>data/rhyme_highlighter.db</code>.</li>
+          <li>Uploaded audio lives under <code>static/uploads/</code> next to the app.</li>
+        </ul>
+      </section>
+    </div>
+  </body>
+</html>

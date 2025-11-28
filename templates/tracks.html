@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SAVED TRACKS — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="back-link">
+        <a href="{{ url_for('landing') }}">Back to home</a>
+      </div>
+
+      <h1>SAVED <em style="font-family: var(--font-serif); color: var(--fg-dim);">TRACKS</em></h1>
+      <p class="subtitle">
+        Debug view of recent processed tracks (stored in SQLite).
+      </p>
+
+      <section class="section">
+        <h3>TRACK DATABASE</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Session</th>
+              <th>Mode</th>
+              <th>Audio</th>
+              <th>Threshold</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in tracks %}
+            <tr>
+              <td>
+                <a href="{{ url_for('track_detail', track_id=t.id) }}">{{ t.id }}</a>
+              </td>
+              <td style="font-size: 0.75rem; color: var(--fg-dim);">{{ t.session_id }}</td>
+              <td>{{ t.mode }}</td>
+              <td>{{ t.audio_filename }}</td>
+              <td>
+                {% if t.threshold is not none %}
+                  {{ '%.2f' % t.threshold }}
+                {% endif %}
+              </td>
+              <td style="font-size: 0.8rem; color: var(--fg-dim);">{{ t.created_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </body>
+</html>

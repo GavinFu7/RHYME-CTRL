@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RHYME CTRL — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="hero">
+      <!-- System status indicator -->
+      <div class="pill">
+        <span class="key">β</span>
+        <span>RHYME ANALYSIS ENGINE • WORD-TIMED • MP3 → VIDEO PIPELINE</span>
+      </div>
+
+      <h1>FROM MP3 TO SYNCED,<br>RHYMED LYRIC <em style="font-family: var(--font-serif); color: var(--fg-dim);">VIDEO.</em></h1>
+      
+      <p class="tagline">
+        Start with audio or text. Whisper transcribes and aligns words to the beat. 
+        The rhyme engine finds families. Performance mode shows everything in sync. 
+        Finetune emphasis, then render a video.
+      </p>
+
+      <!-- Pipeline steps -->
+      <div class="pipeline">
+        <h3>PROCESSING PIPELINE</h3>
+        
+        <div class="step-list">
+          <!-- Step 1: Transcribe -->
+          <div class="step-card">
+            <div class="step-header">
+              <div class="step-number">1</div>
+              <div class="step-title">Start from MP3</div>
+            </div>
+            <div class="step-body">
+              Drop in an MP3 and let Whisper generate baseline lyrics. Clean up 
+              the transcript before alignment, or skip this if you already have lyrics.
+            </div>
+            <div class="step-actions">
+              <a href="{{ url_for('transcribe_mode') }}" class="btn">
+                TRANSCRIBE FROM AUDIO →
+              </a>
+            </div>
+          </div>
+
+          <!-- Step 2: Text mode -->
+          <div class="step-card">
+            <div class="step-header">
+              <div class="step-number">2</div>
+              <div class="step-title">Edit & explore rhymes</div>
+            </div>
+            <div class="step-body">
+              Paste the lyrics (ideally one bar per line). Explore rhyme families 
+              at the word, sub-word and phoneme level. Fix line breaks until it feels right.
+            </div>
+            <div class="step-actions">
+              <a href="{{ url_for('text_mode') }}" class="btn btn-secondary">
+                OPEN TEXT MODE
+              </a>
+            </div>
+          </div>
+
+          <!-- Step 3: Auto-align -->
+          <div class="step-card">
+            <div class="step-header">
+              <div class="step-number">3</div>
+              <div class="step-title">Align audio & watch performance</div>
+            </div>
+            <div class="step-body">
+              Upload audio + lyrics. The app aligns bars and words via Whisper. 
+              Performance mode highlights each word in sync; use the offset slider 
+              if things feel early or late.
+            </div>
+            <div class="step-actions">
+              <a href="{{ url_for('auto_mode') }}" class="btn btn-secondary">
+                STATIC AUTO-ALIGN
+              </a>
+              <a href="{{ url_for('perform_mode') }}" class="btn btn-secondary">
+                LIVE PERFORMANCE
+              </a>
+            </div>
+          </div>
+
+          <!-- Step 4: Finetune -->
+          <div class="step-card">
+            <div class="step-header">
+              <div class="step-number">4</div>
+              <div class="step-title">Finetune emphasis for video</div>
+            </div>
+            <div class="step-body">
+              On top of the AI baseline, manually mark emphasis (0 / 1 / 2) on 
+              internal rhymes, punchlines and key words. Export JSON with timing 
+              + emphasis for video tools.
+            </div>
+            <div class="step-actions">
+              <a href="{{ url_for('finetune_mode') }}" class="btn btn-secondary">
+                OPEN FINETUNE EDITOR
+              </a>
+            </div>
+          </div>
+
+          <!-- Step 5: Render -->
+          <div class="step-card" style="grid-column: 1 / -1;">
+            <div class="step-header">
+              <div class="step-number">5</div>
+              <div class="step-title">Render a lyric video</div>
+            </div>
+            <div class="step-body">
+              Use the CLI renderer to turn your MP3 + finetune JSON into a 
+              simple lyric video. This is your one-command "run the whole pipeline" step.
+            </div>
+            <div class="step-actions">
+              <button type="button" class="btn btn-tertiary">
+                RUN FULL PIPELINE (CLI)
+              </button>
+            </div>
+            <div class="code-block">
+# 1. Export JSON from Finetune mode<br>
+# 2. Then run in your venv:<br>
+<br>
+python3 render_video.py \<br>
+&nbsp;&nbsp;--audio /path/to/track.mp3 \<br>
+&nbsp;&nbsp;--json alignment.json \<br>
+&nbsp;&nbsp;--out track_lyrics.mp4
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-links">
+        <a href="{{ url_for('tracks_list') }}">VIEW SAVED TRACKS</a>
+        &nbsp;·&nbsp;
+        <a href="{{ url_for('about') }}">ABOUT THIS PROJECT</a>
+      </div>
+    </div>
+  </body>
+</html>

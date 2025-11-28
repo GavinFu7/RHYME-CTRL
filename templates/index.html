@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TEXT MODE — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="back-link">
+        <a href="{{ url_for('landing') }}">Back to home</a>
+      </div>
+
+      <h1>TEXT MODE</h1>
+      <p class="subtitle">
+        Whole-word mode colors full words. Sub-word mode colors the dominant 
+        rhyme segment inside each word. Phoneme mode also shows the ARPABET 
+        tails underneath. Click any colored segment to focus on that rhyme 
+        family; click anywhere else to reset.
+      </p>
+
+      <section class="input-section">
+        <h3>INPUT</h3>
+        <form method="POST">
+          <label for="lyrics">LYRICS</label>
+          <textarea
+            id="lyrics"
+            name="lyrics"
+            rows="10"
+            placeholder="Paste your verse here…"
+          >{{ lyrics }}</textarea>
+
+          <div class="controls">
+            <div class="control-group">
+              <label for="threshold">
+                RHYME STRICTNESS
+                <span class="hint">(0 = loose, 1 = strict)</span>
+              </label>
+              <input
+                id="threshold"
+                name="threshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value="{{ '%.2f' % threshold }}"
+              />
+            </div>
+            <button type="submit">ANALYZE</button>
+          </div>
+
+          <div class="view-modes">
+            <span>VIEW:</span>
+            <label>
+              <input type="radio" name="viewMode" value="word" checked />
+              Whole words
+            </label>
+            <label>
+              <input type="radio" name="viewMode" value="subword" />
+              Sub-words
+            </label>
+            <label>
+              <input type="radio" name="viewMode" value="phoneme" />
+              Phonemes
+            </label>
+          </div>
+        </form>
+      </section>
+
+      {% if highlighted %}
+      <section class="output-section">
+        <h2>Detected rhyme families</h2>
+        <p class="subtitle">
+          Use the mode toggle to move from whole words to finer-grained rhyme 
+          structure. Sub-words and phonemes are driven by the same underlying 
+          phoneme grouping; they just show more detail.
+        </p>
+
+        <div class="lyrics-output">
+          {% for line in highlighted %}
+          {% set is_empty_line = (line|length == 0) %}
+          <div class="line-block{% if is_empty_line %} empty{% endif %}">
+            <!-- Surface row: whole words + tail splits -->
+            <p>
+              {% for tok in line %}
+                {% set gid = tok.get('group') %}
+                {% set text = tok['text'] %}
+                {% set is_word = tok['is_word'] %}
+                {% set prefix = tok.get('surface_prefix') or '' %}
+                {% set tail = tok.get('surface_tail') or text %}
+                {% set is_punct = (not is_word and text|length == 1 and text.isalnum() == False) %}
+
+                {% if not loop.first and not is_punct %}&nbsp;{% endif %}
+
+                {% if gid is not none %}
+                  {% set color = group_to_color.get(gid, 'transparent') %}
+                  <span class="word-tail-wrap">
+                    {% if prefix %}
+                      <span>{{ prefix }}</span>
+                    {% endif %}
+                    <span
+                      class="word-tail seg"
+                      data-group="{{ gid }}"
+                      style="background-color: {{ color }};"
+                    >
+                      {{ tail }}
+                    </span>
+                  </span>
+                  <span
+                    class="word-whole seg"
+                    data-group="{{ gid }}"
+                    style="background-color: {{ color }};"
+                  >
+                    {{ text }}
+                  </span>
+                {% else %}
+                  {{ text }}
+                {% endif %}
+              {% endfor %}
+            </p>
+
+            <!-- Phoneme row -->
+            <p class="phoneme-row">
+              {% for tok in line %}
+                {% set gid = tok.get('group') %}
+                {% set tail_ph = tok.get('rhyme_tail') or '' %}
+                {% set text = tok['text'] %}
+                {% set is_word = tok['is_word'] %}
+                {% set is_punct = (not is_word and text|length == 1 and text.isalnum() == False) %}
+
+                {% if not loop.first and not is_punct %}&nbsp;{% endif %}
+
+                {% if gid is not none and tail_ph %}
+                  {% set color = group_to_color.get(gid, 'transparent') %}
+                  <span
+                    class="phoneme-tail seg"
+                    data-group="{{ gid }}"
+                    style="background-color: {{ color }};"
+                  >
+                    {{ tail_ph }}
+                  </span>
+                {% else %}
+                  &nbsp;
+                {% endif %}
+              {% endfor %}
+            </p>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <script>
+        (function () {
+          // Mode switching
+          const radios = Array.from(document.querySelectorAll('input[name="viewMode"]'));
+          
+          function setMode(mode) {
+            document.body.classList.remove("mode-word", "mode-subword", "mode-phoneme");
+            if (mode === "subword") document.body.classList.add("mode-subword");
+            else if (mode === "phoneme") document.body.classList.add("mode-phoneme");
+            else document.body.classList.add("mode-word");
+          }
+          
+          const initial = radios.find((r) => r.checked)?.value || "word";
+          setMode(initial);
+          radios.forEach((r) => r.addEventListener("change", () => setMode(r.value)));
+
+          // Click-to-focus on rhyme families
+          const segs = Array.from(document.querySelectorAll(".seg"));
+          if (!segs.length) return;
+
+          let activeGroup = null;
+
+          function updateHighlight() {
+            segs.forEach((el) => {
+              const gid = el.dataset.group;
+              if (!activeGroup || gid === activeGroup) {
+                el.classList.remove("dim");
+              } else {
+                el.classList.add("dim");
+              }
+            });
+          }
+
+          segs.forEach((el) => {
+            el.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              const gid = el.dataset.group;
+              if (!gid) return;
+              activeGroup = activeGroup === gid ? null : gid;
+              updateHighlight();
+            });
+          });
+
+          document.addEventListener("click", () => {
+            if (activeGroup !== null) {
+              activeGroup = null;
+              updateHighlight();
+            }
+          });
+        })();
+      </script>
+      {% endif %}
+    </div>
+  </body>
+</html>

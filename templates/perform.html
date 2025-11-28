@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PERFORMANCE MODE — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="top-link">
+        <a href="{{ url_for('landing') }}">Back to home</a>
+      </div>
+
+      <h1>PERFORMANCE <em style="font-family: var(--font-serif); color: var(--fg-dim);">MODE</em></h1>
+      <p class="subtitle">
+        Upload an audio file and paste the lyrics. As the track plays, each word 
+        is strongly highlighted in sync, and bars are gently emphasized as they 
+        become active. Use the offset slider if the highlights feel slightly early or late.
+      </p>
+
+      <section class="section">
+        <h3>AUDIO & LYRICS INPUT</h3>
+        <form method="POST" enctype="multipart/form-data">
+          <div class="file-input">
+            <label for="audio">AUDIO FILE (mp3, wav, m4a…)</label>
+            <input id="audio" name="audio" type="file" accept="audio/*" />
+          </div>
+
+          <div style="margin-top: 12px;">
+            <label for="lyrics">LYRICS</label>
+            <textarea
+              id="lyrics"
+              name="lyrics"
+              rows="8"
+              placeholder="Paste the lyrics exactly as they're rapped, one line per bar…"
+            >{{ lyrics }}</textarea>
+          </div>
+
+          <div class="controls" style="margin-top: 10px;">
+            <div class="control-group">
+              <label for="threshold">
+                RHYME STRICTNESS
+                <span class="hint">(0 = loose, 1 = strict)</span>
+              </label>
+              <input
+                id="threshold"
+                name="threshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value="{{ '%.2f' % threshold }}"
+              />
+            </div>
+            <button type="submit">UPLOAD & PERFORM</button>
+          </div>
+
+          {% if error %}
+          <p class="error">{{ error }}</p>
+          {% endif %}
+        </form>
+      </section>
+
+      {% if audio_url and entries %}
+      <section class="section" style="margin-top: 20px;">
+        <h2>Player & Synced View</h2>
+        <audio id="audio-player" controls>
+          <source src="{{ audio_url }}" />
+          Your browser does not support the audio element.
+        </audio>
+
+        <div class="offset-controls">
+          <span>GLOBAL HIGHLIGHT OFFSET (SECONDS):</span>
+          <input type="number" id="offset-input" step="0.05" value="0" />
+          <span class="debug-note">
+            Positive = highlights occur later, negative = earlier.
+          </span>
+        </div>
+
+        <div class="perf-container" id="perf-container">
+          {% for entry in entries %}
+          <p
+            class="perf-line"
+            data-start="{{ '%.2f' % entry.start }}"
+            data-end="{{ '%.2f' % entry.end }}"
+          >
+            {% for tok in entry.tokens %}
+              {% set text = tok['text'] %}
+              {% set is_word = tok['is_word'] %}
+              {% set is_punct = (not is_word and text|length == 1 and text.isalnum() == False) %}
+              {% if not loop.first and not is_punct %}&nbsp;{% endif %}
+
+              {% if is_word %}
+                {% set gid = tok.get('group') %}
+                {% set color = group_to_color.get(gid, 'transparent') if gid is not none else 'transparent' %}
+                {% set w_start = tok.get('w_start', entry.start) %}
+                {% set w_end = tok.get('w_end', entry.end) %}
+                <span
+                  class="perf-word"
+                  data-start="{{ '%.2f' % w_start }}"
+                  data-end="{{ '%.2f' % w_end }}"
+                  data-group="{{ gid if gid is not none }}"
+                  style="background-color: {{ color }};"
+                >
+                  {{ text }}
+                </span>
+              {% else %}
+                {{ text }}
+              {% endif %}
+            {% endfor %}
+          </p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <script>
+        (function () {
+          const audio = document.getElementById("audio-player");
+          const lines = Array.from(document.querySelectorAll(".perf-line"));
+          const words = Array.from(document.querySelectorAll(".perf-word"));
+          const container = document.getElementById("perf-container");
+          const offsetInput = document.getElementById("offset-input");
+
+          if (!audio || !lines.length || !words.length) return;
+
+          let activeGroup = null;
+
+          function getOffset() {
+            const v = parseFloat(offsetInput.value);
+            return isNaN(v) ? 0 : v;
+          }
+
+          function updateActiveWord() {
+            const t = audio.currentTime + getOffset();
+
+            // Reset active state
+            words.forEach((w) => {
+              w.classList.remove("active");
+              w.classList.remove("dim");
+            });
+            lines.forEach((line) => line.classList.remove("active"));
+
+            // Highlight per-word based on timing
+            let currentLineIndex = 0;
+            words.forEach((w) => {
+              const start = parseFloat(w.dataset.start || "0");
+              const end = parseFloat(w.dataset.end || "0");
+              if (t >= start && t <= end) {
+                w.classList.add("active");
+              }
+            });
+
+            // Highlight the active line and scroll towards it
+            for (let i = 0; i < lines.length; i++) {
+              const start = parseFloat(lines[i].dataset.start || "0");
+              const end = parseFloat(lines[i].dataset.end || "0");
+              if (t >= start && t <= end) {
+                currentLineIndex = i;
+                break;
+              }
+            }
+
+            lines.forEach((line, idx) => {
+              if (idx === currentLineIndex) {
+                line.classList.add("active");
+              }
+            });
+
+            const activeLine = lines[currentLineIndex];
+            if (activeLine) {
+              const rect = activeLine.getBoundingClientRect();
+              const parentRect = container.getBoundingClientRect();
+              const buffer = 40;
+              if (
+                rect.top < parentRect.top + buffer ||
+                rect.bottom > parentRect.bottom - buffer
+              ) {
+                activeLine.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+              }
+            }
+
+            // Rhyme family focus: dim everything except the chosen family
+            if (activeGroup) {
+              words.forEach((w) => {
+                const gid = w.dataset.group;
+                if (!gid || gid !== activeGroup) {
+                  if (!w.classList.contains("active")) {
+                    w.classList.add("dim");
+                  }
+                }
+              });
+            }
+          }
+
+          // Expose a minimal API for headless capture
+          window.rhymePlayer = {
+            audio,
+            update: updateActiveWord,
+            setTime(t) {
+              audio.currentTime = t;
+              updateActiveWord();
+            },
+          };
+
+          audio.addEventListener("timeupdate", updateActiveWord);
+          audio.addEventListener("seeked", updateActiveWord);
+          audio.addEventListener("loadedmetadata", updateActiveWord);
+          offsetInput.addEventListener("input", updateActiveWord);
+
+          // Click-to-focus a rhyme family in performance view
+          words.forEach((w) => {
+            w.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              const gid = w.dataset.group;
+              if (!gid) return;
+              activeGroup = activeGroup === gid ? null : gid;
+              updateActiveWord();
+            });
+          });
+
+          // Click outside to clear focus
+          document.addEventListener("click", () => {
+            if (activeGroup !== null) {
+              activeGroup = null;
+              updateActiveWord();
+            }
+          });
+        })();
+      </script>
+      {% endif %}
+    </div>
+  </body>
+</html>

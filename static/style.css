@@ -1,0 +1,1019 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RAP RHYME HIGHLIGHTER — BRUTALIST CONTROL ROOM AESTHETIC
+   Inspired by industrial dashboards, terminal interfaces, and data systems
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* Core palette */
+    --bg: #080808;
+    --bg-elevated: #0f0f14;
+    --bg-panel: #15151a;
+    --fg: #e6e6e6;
+    --fg-dim: #666666;
+    --fg-muted: #444444;
+    --border: #2a2a32;
+    --border-dim: #1a1a1f;
+    --accent: #ffffff;
+    
+    /* Rhyme highlight colors — saturated for dark bg */
+    --rhyme-1: rgba(255, 107, 107, 0.7);
+    --rhyme-2: rgba(78, 205, 196, 0.7);
+    --rhyme-3: rgba(255, 230, 109, 0.7);
+    --rhyme-4: rgba(199, 125, 255, 0.7);
+    --rhyme-5: rgba(107, 185, 255, 0.7);
+    --rhyme-6: rgba(255, 159, 243, 0.7);
+    --rhyme-7: rgba(162, 255, 134, 0.7);
+    --rhyme-8: rgba(255, 184, 108, 0.7);
+    
+    /* Typography */
+    --font-mono: "SF Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+    --font-serif: "Times New Roman", "Georgia", Times, serif;
+    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    
+    /* Spacing scale */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 3rem;
+    --space-3xl: 4rem;
+    
+    /* Timing */
+    --transition-fast: 0.1s ease-out;
+    --transition-medium: 0.2s ease-out;
+    --transition-slow: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─── Reset & Base ────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ─── Scanline Effect ─────────────────────────────────────────────────────── */
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(255, 255, 255, 0.015) 50%,
+        transparent 100%
+    );
+    pointer-events: none;
+    animation: scanline 8s linear infinite;
+    z-index: 1000;
+}
+
+@keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+}
+
+/* Subtle noise texture overlay */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 999;
+}
+
+/* ─── Page Container ──────────────────────────────────────────────────────── */
+
+.page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: var(--space-xl) var(--space-lg);
+    border-left: 1px solid var(--border-dim);
+    border-right: 1px solid var(--border-dim);
+    min-height: 100vh;
+    position: relative;
+    z-index: 2;
+}
+
+/* ─── Typography ──────────────────────────────────────────────────────────── */
+
+h1 {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    margin-bottom: var(--space-sm);
+    color: var(--accent);
+}
+
+h2 {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    margin-bottom: var(--space-sm);
+    color: var(--fg);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--space-sm);
+}
+
+h3 {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-dim);
+    margin-bottom: var(--space-sm);
+}
+
+p {
+    margin-bottom: var(--space-md);
+}
+
+.subtitle {
+    font-size: 0.875rem;
+    color: var(--fg-dim);
+    line-height: 1.6;
+    max-width: 600px;
+}
+
+a {
+    color: var(--fg);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+code {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    background: var(--bg-elevated);
+    padding: 0.15em 0.4em;
+    border-radius: 2px;
+    border: 1px solid var(--border-dim);
+}
+
+/* ─── Navigation ──────────────────────────────────────────────────────────── */
+
+.top-link,
+.back-link {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-dim);
+}
+
+.top-link a,
+.back-link a {
+    color: var(--fg-dim);
+    border-bottom: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.top-link a::before,
+.back-link a::before {
+    content: '←';
+    font-size: 0.9em;
+}
+
+.top-link a:hover,
+.back-link a:hover {
+    color: var(--fg);
+}
+
+/* ─── Sections / Panels ───────────────────────────────────────────────────── */
+
+.section,
+.input-section,
+.output-section {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: var(--space-lg);
+    margin-top: var(--space-lg);
+    position: relative;
+}
+
+.section::before,
+.input-section::before,
+.output-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* ─── Form Elements ───────────────────────────────────────────────────────── */
+
+label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-dim);
+    margin-bottom: var(--space-xs);
+}
+
+textarea {
+    width: 100%;
+    min-height: 180px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    padding: var(--space-md);
+    resize: vertical;
+    transition: border-color var(--transition-fast);
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--fg-dim);
+}
+
+textarea::placeholder {
+    color: var(--fg-muted);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="file"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: var(--space-sm) var(--space-md);
+    transition: border-color var(--transition-fast);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+    outline: none;
+    border-color: var(--fg-dim);
+}
+
+input[type="file"] {
+    padding: var(--space-sm);
+    cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--fg-dim);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--space-xs) var(--space-sm);
+    margin-right: var(--space-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+input[type="file"]::file-selector-button:hover {
+    background: var(--fg);
+    color: var(--bg);
+    border-color: var(--fg);
+}
+
+/* Radio buttons */
+input[type="radio"] {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    vertical-align: middle;
+    margin-right: 0.4em;
+    transition: all var(--transition-fast);
+}
+
+input[type="radio"]:checked {
+    background: var(--fg);
+    border-color: var(--fg);
+}
+
+input[type="radio"]:hover {
+    border-color: var(--fg-dim);
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+
+button,
+.btn {
+    background: transparent;
+    border: 1px solid var(--fg);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: var(--space-sm) var(--space-lg);
+    cursor: pointer;
+    transition: all var(--transition-medium);
+    position: relative;
+    overflow: hidden;
+}
+
+button:hover,
+.btn:hover {
+    background: var(--fg);
+    color: var(--bg);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+button:active,
+.btn:active {
+    transform: scale(0.98);
+}
+
+button[type="submit"] {
+    border-color: var(--accent);
+}
+
+.btn-secondary {
+    border-color: var(--fg-dim);
+    color: var(--fg-dim);
+}
+
+.btn-secondary:hover {
+    border-color: var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+}
+
+.btn-tertiary {
+    border-color: var(--border);
+    color: var(--fg-dim);
+}
+
+.btn-tertiary:hover {
+    border-color: var(--fg-dim);
+    background: var(--bg-elevated);
+    color: var(--fg);
+}
+
+/* ─── Controls Layout ─────────────────────────────────────────────────────── */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-lg);
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-dim);
+}
+
+.controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-lg);
+    margin-top: var(--space-md);
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.control-group input[type="number"] {
+    width: 100px;
+}
+
+.hint {
+    font-size: 0.7rem;
+    color: var(--fg-muted);
+    font-weight: 400;
+}
+
+/* ─── File Input Section ──────────────────────────────────────────────────── */
+
+.file-input {
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-dim);
+}
+
+/* ─── View Modes Toggle ───────────────────────────────────────────────────── */
+
+.view-modes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-dim);
+    font-size: 0.8rem;
+    color: var(--fg-dim);
+}
+
+.view-modes label {
+    display: inline-flex;
+    align-items: center;
+    text-transform: none;
+    letter-spacing: normal;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.view-modes label:hover {
+    color: var(--fg);
+}
+
+/* ─── Audio Player ────────────────────────────────────────────────────────── */
+
+audio {
+    width: 100%;
+    margin-top: var(--space-sm);
+    filter: grayscale(100%) brightness(1.2);
+    opacity: 0.9;
+}
+
+audio::-webkit-media-controls-panel {
+    background: var(--bg-elevated);
+}
+
+/* ─── Offset Controls ─────────────────────────────────────────────────────── */
+
+.offset-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    padding: var(--space-sm) 0;
+    font-size: 0.8rem;
+    color: var(--fg-dim);
+    border-bottom: 1px solid var(--border-dim);
+}
+
+.offset-controls input[type="number"] {
+    width: 80px;
+}
+
+.debug-note {
+    font-size: 0.7rem;
+    color: var(--fg-muted);
+}
+
+/* ─── Lyrics Containers ───────────────────────────────────────────────────── */
+
+.sync-container,
+.perf-container {
+    max-height: 420px;
+    overflow-y: auto;
+    margin-top: var(--space-md);
+    padding-right: var(--space-sm);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.sync-container::-webkit-scrollbar,
+.perf-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sync-container::-webkit-scrollbar-track,
+.perf-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sync-container::-webkit-scrollbar-thumb,
+.perf-container::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+/* ─── Lyric Lines ─────────────────────────────────────────────────────────── */
+
+.line,
+.perf-line {
+    margin: 0.2rem 0;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    border-left: 2px solid transparent;
+    transition: 
+        background var(--transition-fast),
+        transform var(--transition-fast),
+        border-color var(--transition-fast),
+        opacity var(--transition-fast);
+}
+
+.line.active,
+.perf-line.active {
+    background: rgba(255, 255, 255, 0.04);
+    border-left-color: var(--fg-dim);
+    transform: translateX(4px);
+}
+
+.line:not(.active),
+.perf-line:not(.active) {
+    opacity: 0.7;
+}
+
+/* ─── Word Tokens ─────────────────────────────────────────────────────────── */
+
+.word,
+.perf-word,
+.word-whole,
+.word-tail,
+.phoneme-tail {
+    display: inline;
+    padding: 2px 4px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: 
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast),
+        opacity var(--transition-fast),
+        background var(--transition-fast),
+        color var(--transition-fast);
+}
+
+.word:hover,
+.perf-word:hover,
+.word-whole:hover,
+.word-tail:hover {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+    transform: translateY(-1px);
+}
+
+/* Active word during playback */
+.perf-word.active {
+    outline: 2px solid var(--accent);
+    box-shadow: 
+        0 0 0 3px rgba(0, 0, 0, 0.8),
+        0 0 20px rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px) scale(1.12);
+    color: var(--bg);
+    background-color: var(--accent) !important;
+    z-index: 10;
+    position: relative;
+}
+
+/* Dimmed state for focus mode */
+.word.dim,
+.perf-word.dim,
+.word-whole.dim,
+.word-tail.dim,
+.seg.dim {
+    opacity: 0.2;
+}
+
+/* ─── Emphasis Levels (Finetune Mode) ─────────────────────────────────────── */
+
+.perf-word.emph-1 {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+.perf-word.emph-2 {
+    box-shadow: 
+        0 0 0 2px rgba(255, 255, 255, 0.9),
+        0 0 15px rgba(255, 255, 255, 0.6);
+    transform: translateY(-1px);
+    font-weight: 700;
+}
+
+/* ─── Lyrics Output (Text Mode) ───────────────────────────────────────────── */
+
+.lyrics-output {
+    margin-top: var(--space-md);
+    font-size: 1rem;
+    line-height: 1.8;
+}
+
+.lyrics-output p {
+    margin: 0.2rem 0;
+}
+
+.line-block {
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-dim);
+}
+
+.line-block.empty {
+    margin-bottom: var(--space-lg);
+    border-bottom: none;
+}
+
+.phoneme-row {
+    margin-top: 2px;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    color: var(--fg-dim);
+    letter-spacing: 0.02em;
+}
+
+/* Mode switching classes */
+body.mode-word .word-whole { display: inline; }
+body.mode-word .word-tail-wrap { display: none; }
+body.mode-word .phoneme-row { display: none; }
+
+body.mode-subword .word-whole { display: none; }
+body.mode-subword .word-tail-wrap { display: inline; }
+body.mode-subword .phoneme-row { display: none; }
+
+body.mode-phoneme .word-whole { display: none; }
+body.mode-phoneme .word-tail-wrap { display: inline; }
+body.mode-phoneme .phoneme-row { display: block; }
+
+/* ─── Transcript Area (Transcribe Mode) ───────────────────────────────────── */
+
+.transcript-area {
+    margin-top: var(--space-md);
+}
+
+.transcript-area textarea {
+    min-height: 280px;
+}
+
+/* ─── Export Area (Finetune Mode) ─────────────────────────────────────────── */
+
+.export-area {
+    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border);
+}
+
+.export-area textarea {
+    min-height: 160px;
+    font-size: 0.75rem;
+}
+
+/* ─── Error Messages ──────────────────────────────────────────────────────── */
+
+.error {
+    color: #ff6b6b;
+    font-size: 0.8rem;
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    background: rgba(255, 107, 107, 0.05);
+}
+
+/* ─── Hints ───────────────────────────────────────────────────────────────── */
+
+.hint-small {
+    font-size: 0.75rem;
+    color: var(--fg-muted);
+    margin-top: var(--space-sm);
+    font-style: italic;
+}
+
+/* ─── Data Tables ─────────────────────────────────────────────────────────── */
+
+table {
+    width: 100%;
+    margin-top: var(--space-md);
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+th {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    text-align: left;
+    padding: var(--space-sm) var(--space-sm);
+    border-bottom: 1px solid var(--border);
+    color: var(--fg-dim);
+    background: var(--bg-elevated);
+}
+
+td {
+    padding: var(--space-sm);
+    border-bottom: 1px solid var(--border-dim);
+}
+
+tbody tr {
+    transition: background var(--transition-fast);
+}
+
+tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+td a {
+    border-bottom: none;
+}
+
+td a:hover {
+    text-decoration: underline;
+}
+
+/* ─── Pre/Code Blocks ─────────────────────────────────────────────────────── */
+
+pre {
+    background: var(--bg);
+    border: 1px solid var(--border-dim);
+    padding: var(--space-md);
+    overflow-x: auto;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+/* ─── Lists ───────────────────────────────────────────────────────────────── */
+
+ul {
+    margin: var(--space-sm) 0;
+    padding-left: var(--space-lg);
+}
+
+li {
+    margin-bottom: var(--space-xs);
+    line-height: 1.6;
+}
+
+li strong {
+    color: var(--fg);
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .page {
+        padding: var(--space-lg) var(--space-md);
+        border-left: none;
+        border-right: none;
+    }
+    
+    h1 {
+        font-size: 1.75rem;
+    }
+    
+    .controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .controls button {
+        width: 100%;
+    }
+    
+    .view-modes {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .offset-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LANDING PAGE SPECIFIC STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.hero {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: var(--space-2xl) var(--space-lg) var(--space-3xl);
+    border-left: 1px solid var(--border-dim);
+    border-right: 1px solid var(--border-dim);
+    min-height: 100vh;
+    position: relative;
+    z-index: 2;
+}
+
+/* System status pill */
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-md);
+    border: 1px solid var(--border);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--fg-dim);
+    margin-bottom: var(--space-lg);
+}
+
+.pill .key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-size: 0.65rem;
+    color: var(--fg);
+}
+
+/* Hero headline */
+.hero h1 {
+    font-size: 3rem;
+    line-height: 0.95;
+    margin-bottom: var(--space-md);
+    max-width: 700px;
+}
+
+.hero .tagline {
+    font-size: 0.9rem;
+    max-width: 580px;
+    margin-bottom: var(--space-xl);
+}
+
+/* Pipeline steps grid */
+.pipeline {
+    margin-top: var(--space-lg);
+}
+
+.step-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+}
+
+@media (min-width: 860px) {
+    .step-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Step cards */
+.step-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: var(--space-lg);
+    position: relative;
+    transition: border-color var(--transition-medium);
+}
+
+.step-card:hover {
+    border-color: var(--fg-dim);
+}
+
+.step-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.step-number {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--fg-dim);
+}
+
+.step-title {
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.step-body {
+    font-size: 0.8rem;
+    color: var(--fg-dim);
+    line-height: 1.6;
+    margin-bottom: var(--space-md);
+}
+
+.step-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.step-actions .btn {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.7rem;
+}
+
+/* Code block in landing */
+.code-block {
+    margin-top: var(--space-sm);
+    background: var(--bg);
+    border: 1px solid var(--border-dim);
+    padding: var(--space-md);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--fg-dim);
+    line-height: 1.6;
+    overflow-x: auto;
+}
+
+/* Nav links at bottom */
+.nav-links {
+    margin-top: var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border-dim);
+    font-size: 0.8rem;
+    color: var(--fg-dim);
+}
+
+.nav-links a {
+    color: var(--fg-dim);
+}
+
+.nav-links a:hover {
+    color: var(--fg);
+}
+
+/* ─── Ticker (optional) ───────────────────────────────────────────────────── */
+
+.ticker {
+    overflow: hidden;
+    white-space: nowrap;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--fg-muted);
+    background: var(--bg);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+}
+
+.ticker-content {
+    display: inline-block;
+    animation: marquee 30s linear infinite;
+}
+
+@keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* When ticker is present, add top padding */
+body.has-ticker .page,
+body.has-ticker .hero {
+    padding-top: calc(var(--space-xl) + 30px);
+}

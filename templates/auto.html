@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AUTO-ALIGN — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="top-link">
+        <a href="{{ url_for('landing') }}">Back to home</a>
+      </div>
+
+      <h1>AUTO-ALIGN</h1>
+      <p class="subtitle">
+        Upload an audio file and paste the lyrics. Whisper will auto-transcribe 
+        and the app will sync your lyrics + rhyme colors to the playback.
+      </p>
+
+      <section class="section">
+        <h3>AUDIO & LYRICS INPUT</h3>
+        <form method="POST" enctype="multipart/form-data">
+          <div class="file-input">
+            <label for="audio">AUDIO FILE (mp3, wav, m4a…)</label>
+            <input id="audio" name="audio" type="file" accept="audio/*" />
+          </div>
+
+          <div style="margin-top: 12px;">
+            <label for="lyrics">LYRICS</label>
+            <textarea
+              id="lyrics"
+              name="lyrics"
+              rows="8"
+              placeholder="Paste the lyrics exactly as they're rapped, one line per bar…"
+            >{{ lyrics }}</textarea>
+          </div>
+
+          <div class="controls-row">
+            <div class="control-group">
+              <label for="threshold">
+                RHYME STRICTNESS
+                <span class="hint">(0 = loose, 1 = strict)</span>
+              </label>
+              <input
+                id="threshold"
+                name="threshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value="{{ '%.2f' % threshold }}"
+              />
+            </div>
+            <button type="submit">UPLOAD & AUTO-ALIGN</button>
+          </div>
+
+          {% if error %}
+          <p class="error">{{ error }}</p>
+          {% endif %}
+        </form>
+      </section>
+
+      {% if audio_url and entries %}
+      <section class="section" style="margin-top: 20px;">
+        <h2>Player & Synced Rhyme View</h2>
+        <audio id="audio-player" controls>
+          <source src="{{ audio_url }}" />
+          Your browser does not support the audio element.
+        </audio>
+
+        <div class="sync-container" id="lyrics-container">
+          {% for entry in entries %}
+          <p class="line" data-start="{{ '%.2f' % entry.start }}">
+            {% for tok in entry.tokens %}
+              {% set gid = tok.get('group') %}
+              {% set text = tok['text'] %}
+              {% set is_word = tok['is_word'] %}
+              {% set is_punct = (not is_word and text|length == 1 and text.isalnum() == False) %}
+
+              {% if not loop.first and not is_punct %}&nbsp;{% endif %}
+
+              {% if gid is not none %}
+                {% set color = group_to_color.get(gid, 'transparent') %}
+                <span
+                  class="word"
+                  data-group="{{ gid }}"
+                  style="background-color: {{ color }};"
+                >
+                  {{ text }}
+                </span>
+              {% else %}
+                {{ text }}
+              {% endif %}
+            {% endfor %}
+          </p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <script>
+        const audio = document.getElementById("audio-player");
+        const lines = Array.from(document.querySelectorAll(".line"));
+        const container = document.getElementById("lyrics-container");
+
+        function updateActiveLine() {
+          if (!audio || !lines.length) return;
+          const t = audio.currentTime;
+          let currentIndex = 0;
+
+          for (let i = 0; i < lines.length; i++) {
+            const start = parseFloat(lines[i].dataset.start || "0");
+            if (start <= t) currentIndex = i;
+            else break;
+          }
+
+          lines.forEach((line, idx) => {
+            if (idx === currentIndex) {
+              line.classList.add("active");
+            } else {
+              line.classList.remove("active");
+            }
+          });
+
+          const active = lines[currentIndex];
+          if (active) {
+            const rect = active.getBoundingClientRect();
+            const parentRect = container.getBoundingClientRect();
+            const buffer = 40;
+
+            if (
+              rect.top < parentRect.top + buffer ||
+              rect.bottom > parentRect.bottom - buffer
+            ) {
+              active.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }
+        }
+
+        if (audio) {
+          audio.addEventListener("timeupdate", updateActiveLine);
+          audio.addEventListener("seeked", updateActiveLine);
+          audio.addEventListener("loadedmetadata", updateActiveLine);
+        }
+
+        // Click-to-focus on rhyme family
+        (function () {
+          const words = Array.from(document.querySelectorAll(".word"));
+          if (!words.length) return;
+
+          let activeGroup = null;
+
+          function updateWordHighlight() {
+            words.forEach((w) => {
+              const gid = w.dataset.group;
+              if (!activeGroup || gid === activeGroup) {
+                w.classList.remove("dim");
+              } else {
+                w.classList.add("dim");
+              }
+            });
+          }
+
+          words.forEach((w) => {
+            w.addEventListener("click", () => {
+              const gid = w.dataset.group;
+              if (!gid) return;
+              activeGroup = activeGroup === gid ? null : gid;
+              updateWordHighlight();
+            });
+          });
+        })();
+      </script>
+      {% endif %}
+    </div>
+  </body>
+</html>

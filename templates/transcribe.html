@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRANSCRIBE — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="top-link">
+        <a href="{{ url_for('landing') }}">Back to home</a>
+      </div>
+
+      <h1>TRANSCRIBE <em style="font-family: var(--font-serif); color: var(--fg-dim);">FROM AUDIO</em></h1>
+      <p class="subtitle">
+        Upload an audio file and Whisper will generate a baseline transcript. 
+        You can edit it here and then copy it into Text / Performance / Finetune modes.
+      </p>
+
+      <section class="section">
+        <h3>AUDIO INPUT</h3>
+        <form method="POST" enctype="multipart/form-data">
+          <div class="file-input">
+            <label for="audio">AUDIO FILE (mp3, wav, m4a…)</label>
+            <input id="audio" name="audio" type="file" accept="audio/*" />
+          </div>
+          <div class="controls" style="margin-top: 10px;">
+            <button type="submit">UPLOAD & TRANSCRIBE</button>
+          </div>
+
+          {% if error %}
+          <p class="error">{{ error }}</p>
+          {% endif %}
+        </form>
+      </section>
+
+      {% if audio_url or lyrics %}
+      <section class="section" style="margin-top: 20px;">
+        <h2>Transcript</h2>
+        {% if audio_url %}
+        <audio id="audio-player" controls>
+          <source src="{{ audio_url }}" />
+          Your browser does not support the audio element.
+        </audio>
+        {% endif %}
+
+        <div class="transcript-area">
+          <label for="transcript-output">GENERATED TRANSCRIPT</label>
+          <textarea id="transcript-output">{{ lyrics }}</textarea>
+        </div>
+        <p class="hint-small">
+          Tip: clean up the text as needed, then copy/paste into Text / Perform / 
+          Finetune modes. For best alignment, keep roughly one bar per line.
+        </p>
+      </section>
+      {% endif %}
+    </div>
+  </body>
+</html>

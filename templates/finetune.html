@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FINETUNE MODE — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="top-link">
+        <a href="{{ url_for('landing') }}">Back to home</a>
+      </div>
+
+      <h1>FINETUNE <em style="font-family: var(--font-serif); color: var(--fg-dim);">MODE</em></h1>
+      <p class="subtitle">
+        Use this mode to manually emphasize words or phrases on top of the 
+        AI-generated timing and rhymes. Click a word to cycle emphasis: 
+        none → level 1 → level 2.
+      </p>
+
+      <section class="section">
+        <h3>AUDIO & LYRICS INPUT</h3>
+        <form method="POST" enctype="multipart/form-data">
+          <div class="file-input">
+            <label for="audio">AUDIO FILE (mp3, wav, m4a…)</label>
+            <input id="audio" name="audio" type="file" accept="audio/*" />
+          </div>
+
+          <div style="margin-top: 12px;">
+            <label for="lyrics">LYRICS</label>
+            <textarea
+              id="lyrics"
+              name="lyrics"
+              rows="8"
+              placeholder="Paste the lyrics exactly as they're rapped, one line per bar…"
+            >{{ lyrics }}</textarea>
+          </div>
+
+          <div class="controls" style="margin-top: 10px;">
+            <div class="control-group">
+              <label for="threshold">
+                RHYME STRICTNESS
+                <span class="hint">(0 = loose, 1 = strict)</span>
+              </label>
+              <input
+                id="threshold"
+                name="threshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value="{{ '%.2f' % threshold }}"
+              />
+            </div>
+            <button type="submit">UPLOAD & FINETUNE</button>
+          </div>
+
+          {% if error %}
+          <p class="error">{{ error }}</p>
+          {% endif %}
+        </form>
+      </section>
+
+      {% if audio_url and entries %}
+      <section class="section" style="margin-top: 20px;">
+        <h2>Player & Editable Highlights</h2>
+        <audio id="audio-player" controls>
+          <source src="{{ audio_url }}" />
+          Your browser does not support the audio element.
+        </audio>
+
+        <p class="hint-small">
+          Tip: click words you want to feature in video (e.g., internal rhymes, 
+          punchlines). Click repeatedly to cycle emphasis level. Timing and 
+          colors come from the AI baseline.
+        </p>
+
+        <div class="perf-container" id="perf-container">
+          {% for entry in entries %}
+          <p
+            class="perf-line"
+            data-start="{{ '%.2f' % entry.start }}"
+            data-end="{{ '%.2f' % entry.end }}"
+          >
+            {% for tok in entry.tokens %}
+              {% set text = tok['text'] %}
+              {% set is_word = tok['is_word'] %}
+              {% set is_punct = (not is_word and text|length == 1 and text.isalnum() == False) %}
+              {% if not loop.first and not is_punct %}&nbsp;{% endif %}
+
+              {% if is_word %}
+                {% set gid = tok.get('group') %}
+                {% set color = group_to_color.get(gid, 'transparent') if gid is not none else 'transparent' %}
+                {% set w_start = tok.get('w_start', entry.start) %}
+                {% set w_end = tok.get('w_end', entry.end) %}
+                <span
+                  class="perf-word"
+                  data-start="{{ '%.2f' % w_start }}"
+                  data-end="{{ '%.2f' % w_end }}"
+                  data-group="{{ gid if gid is not none }}"
+                  data-emphasis="0"
+                  style="background-color: {{ color }};"
+                >
+                  {{ text }}
+                </span>
+              {% else %}
+                {{ text }}
+              {% endif %}
+            {% endfor %}
+          </p>
+          {% endfor %}
+        </div>
+
+        <div class="export-area">
+          <h3>EXPORT</h3>
+          <button type="button" id="export-btn">EXPORT CURRENT TIMING & EMPHASIS AS JSON</button>
+          <textarea id="export-output" placeholder="Click 'Export' to generate JSON…"></textarea>
+          <p class="hint-small">
+            You can copy this JSON into a separate script or tool to render 
+            video overlays with the exact same timing and emphasis.
+          </p>
+        </div>
+      </section>
+
+      <script>
+        (function () {
+          const audio = document.getElementById("audio-player");
+          const lines = Array.from(document.querySelectorAll(".perf-line"));
+          const words = Array.from(document.querySelectorAll(".perf-word"));
+          const container = document.getElementById("perf-container");
+          const exportBtn = document.getElementById("export-btn");
+          const exportOutput = document.getElementById("export-output");
+
+          if (!audio || !lines.length || !words.length) return;
+
+          function updateActiveWord() {
+            const t = audio.currentTime;
+
+            words.forEach((w) => w.classList.remove("active"));
+            lines.forEach((line) => line.classList.remove("active"));
+
+            // Active word
+            words.forEach((w) => {
+              const start = parseFloat(w.dataset.start || "0");
+              const end = parseFloat(w.dataset.end || "0");
+              if (t >= start && t <= end) {
+                w.classList.add("active");
+              }
+            });
+
+            // Active line
+            let currentLineIndex = 0;
+            for (let i = 0; i < lines.length; i++) {
+              const start = parseFloat(lines[i].dataset.start || "0");
+              const end = parseFloat(lines[i].dataset.end || "0");
+              if (t >= start && t <= end) {
+                currentLineIndex = i;
+                break;
+              }
+            }
+
+            lines.forEach((line, idx) => {
+              if (idx === currentLineIndex) {
+                line.classList.add("active");
+              }
+            });
+
+            const activeLine = lines[currentLineIndex];
+            if (activeLine) {
+              const rect = activeLine.getBoundingClientRect();
+              const parentRect = container.getBoundingClientRect();
+              const buffer = 40;
+              if (
+                rect.top < parentRect.top + buffer ||
+                rect.bottom > parentRect.bottom - buffer
+              ) {
+                activeLine.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+              }
+            }
+          }
+
+          audio.addEventListener("timeupdate", updateActiveWord);
+          audio.addEventListener("seeked", updateActiveWord);
+          audio.addEventListener("loadedmetadata", updateActiveWord);
+
+          // Click to cycle emphasis: 0 -> 1 -> 2 -> 0
+          words.forEach((w) => {
+            w.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              let level = parseInt(w.dataset.emphasis || "0", 10);
+              level = (level + 1) % 3;
+              w.dataset.emphasis = String(level);
+              w.classList.remove("emph-0", "emph-1", "emph-2");
+              if (level === 1) w.classList.add("emph-1");
+              else if (level === 2) w.classList.add("emph-2");
+            });
+          });
+
+          // Export JSON of current alignment + emphasis
+          function exportJSON() {
+            const result = [];
+            const lineNodes = Array.from(document.querySelectorAll(".perf-line"));
+
+            lineNodes.forEach((lineNode, lineIndex) => {
+              const lineStart = parseFloat(lineNode.dataset.start || "0");
+              const lineEnd = parseFloat(lineNode.dataset.end || "0");
+              const wordNodes = Array.from(lineNode.querySelectorAll(".perf-word"));
+
+              const wordsData = wordNodes.map((wNode, wordIndex) => {
+                return {
+                  text: wNode.textContent.trim(),
+                  start: parseFloat(wNode.dataset.start || "0"),
+                  end: parseFloat(wNode.dataset.end || "0"),
+                  group: wNode.dataset.group || null,
+                  emphasis: parseInt(wNode.dataset.emphasis || "0", 10),
+                  line_index: lineIndex,
+                  word_index: wordIndex,
+                };
+              });
+
+              result.push({
+                line_index: lineIndex,
+                start: lineStart,
+                end: lineEnd,
+                words: wordsData,
+              });
+            });
+
+            exportOutput.value = JSON.stringify(result, null, 2);
+          }
+
+          exportBtn.addEventListener("click", exportJSON);
+        })();
+      </script>
+      {% endif %}
+    </div>
+  </body>
+</html>

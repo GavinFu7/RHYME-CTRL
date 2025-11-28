@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RHYME CTRL — Rap Rhyme Highlighter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+
+    <div class="top-link">
+      <a href="#">RHYME CTRL — RAP RHYME HIGHLIGHTER</a>
+    </div>
+
+    <h1>RHYME CTRL — Rap Rhyme Highlighter</h1>
+    <p class="subtitle">
+      A fully local system for phonetic rhyme analysis, word-timed alignment, and cinematic lyric visualization.
+    </p>
+
+    <!-- ABSTRACT -->
+    <section class="section">
+      <h2>Abstract</h2>
+      <p>
+        This document describes <strong>RHYME CTRL</strong>, a fully-local computational
+        pipeline for the phonetic, structural, and temporal analysis of rap lyrics.
+        The system integrates sequence-to-sequence acoustic alignment (via Whisper),
+        a vowel-centric rhyme-family detector, locality-aware rhyme grouping,
+        interactive finetuning, and a cinematic HTML renderer driven by headless
+        browser capture into a single architecture capable of producing synchronized,
+        rhyme-colored lyric videos directly from MP3 audio.
+      </p>
+      <p>
+        The innovation lies in: (1) a three-tier representation of rhyme structure
+        (word-level, sub-word-level, phoneme-tail), (2) a <em>locality-aware</em>
+        rhyme grouping framework implemented in <code>rhyme_core.py</code>, (3) a
+        Whisper-based alignment-to-lyrics synchronization engine implemented in
+        <code>auto_align.py</code>, and (4) a cinematic HTML rendering pipeline
+        (<code>capture.html</code>) controlled via <code>window.capturePlayer</code>
+        and orchestrated by Playwright (<code>capture_video.py</code>).
+      </p>
+      <p>
+        We formalize rhyme matching as a phoneme-tail similarity problem under a
+        weighted metric and show how the implemented heuristics approximate this
+        objective. We additionally outline a probabilistic HMM/CRF interpretation
+        of the rhyme-labeling problem as future work.
+      </p>
+    </section>
+
+    <!-- INTRODUCTION -->
+    <section class="section">
+      <h2>1. Introduction</h2>
+      <p>
+        Rap exhibits dense, multi-layered rhyme structure: internal rhymes,
+        multisyllabic chains, cross-line patterns, assonance, consonance, and
+        deliberate phonetic distortions. Unlike traditional poetry, rhyme is not
+        restricted to line-final suffixes; instead, sequences like
+        <em>foolishly / cluelessly / buffoonishly</em> form phonetic clusters
+        whose rhyme-bearing segments can appear mid-word and span multiple bars.
+      </p>
+      <p>
+        Classical rhyme detection methods—Levenshtein distance on orthographic
+        suffixes, dictionary-based rhyme lists, or CMUdict end-rhyme detectors—
+        fail to capture the rap-specific structure of phonetic recurrence. They
+        typically ignore performance timing, treat rhyme as a static property of
+        isolated lines, and do not support multi-line rhyme visualization.
+      </p>
+      <p>
+        RHYME CTRL aims to operationalize a mathematically grounded, performance-aware
+        model of rhyme structure: one that respects phoneme tails centered on
+        stressed vowels, accounts for temporal locality in rhyme grouping, and
+        ultimately produces visualizations that match a human listener’s
+        perception of rhyme schemes across bars and verses.
+      </p>
+    </section>
+
+    <!-- SYSTEM OVERVIEW -->
+    <section class="section">
+      <h2>2. System Overview</h2>
+      <p>
+        RHYME CTRL’s pipeline can be summarized as:
+      </p>
+      <ul>
+        <li><strong>Transcription &amp; alignment:</strong> Whisper transcribes audio and provides word-level timestamps.</li>
+        <li><strong>Lyrics alignment:</strong> user-supplied lyrics are aligned to ASR tokens via a DP-like alignment (<code>auto_align.py</code>).</li>
+        <li><strong>Rhyme analysis:</strong> each lyric token is mapped to a phoneme sequence, a rhyme tail, and a locality-aware rhyme group (<code>rhyme_core.py</code>).</li>
+        <li><strong>Interactive views:</strong> text mode, auto-align mode, performance mode, and finetune mode, all implemented as HTML templates.</li>
+        <li><strong>Cinematic capture:</strong> a fixed 1280×720 capture view (<code>capture.html</code>) driven by <code>window.capturePlayer</code>.</li>
+        <li><strong>Video export:</strong> <code>capture_video.py</code> orchestrates browser capture via Playwright and merges frames with audio via ffmpeg.</li>
+      </ul>
+
+      <h3>2.1 Pipeline Diagram</h3>
+      <pre><code class="language-mermaid">flowchart TD
+
+    A["Raw Audio (MP3/WAV)"] --> B["Whisper Transcription&lt;br/&gt;+ Word Timestamps"]
+    B --> C["ASR Word Sequence"]
+    D["User Lyrics"] --> E["Lyric Word Sequence"]
+
+    C --> F["ASR ↔ Lyrics Alignment&lt;br/&gt;(SequenceMatcher / DP-like)"]
+    E --> F
+
+    F --> G["Word-Level Timings&lt;br/&gt;(Aligned Lyrics)"]
+    G --> H["Phoneme &amp; Tail Extraction&lt;br/&gt;(rhyme_core.py)"]
+    H --> I["Locality-Aware Rhyme Grouping"]
+    I --> J["Structured Alignment JSON&lt;br/&gt;(words, groups, emphasis, times)"]
+
+    J --> K["Performance View (/perform)"]
+    J --> L["Finetune View (/finetune)"]
+    J --> M["Cinematic View (/capture)"]
+
+    M --> N["Playwright Capture&lt;br/&gt;(capture_video.py)"]
+    N --> O["PNG Frames"]
+    O --> P["ffmpeg"]
+    P --> Q["Final Lyric Video (MP4)"]</code></pre>
+    </section>
+
+    <!-- MATHEMATICAL MODEL -->
+    <section class="section">
+      <h2>3. Mathematical Model of Rhyme</h2>
+
+      <h3>3.1 Phoneme-Tail Extraction (Implemented)</h3>
+      <p>
+        For a token \( w \), we let <code>phones_for_word(w)</code> return a
+        phonemic transcription:
+      </p>
+      <pre><code>φ(w) = (p₁, p₂, …, pₖ)</code></pre>
+      <p>
+        In <code>rhyme_core.py</code>, the function
+        <code>last_stressed_vowel_index(phones)</code> finds the last stressed vowel.
+        The tail operator \( T(w) \) used by the code is:
+      </p>
+      <pre><code>T(w) = (p_j, p_{j+1}, …, p_k)</code></pre>
+      <p>
+        where \( p_j \) is the last stressed vowel. This is implemented by
+        <code>rhyme_tail_phones(phones)</code> and then stored into the token as
+        <code>token["rhyme_tail"]</code>.
+      </p>
+
+      <h3>3.2 Rhyme Similarity (Implemented)</h3>
+      <p>
+        The rhyme similarity function is implemented as
+        <code>rhyme_similarity(p1, p2)</code> in <code>rhyme_core.py</code>. It uses:
+      </p>
+      <ul>
+        <li>Vowel nucleus identity (via <code>last_stressed_vowel</code>)</li>
+        <li>Common suffix of base phones in <code>rhyme_tail_phones</code></li>
+        <li>Optional head-rhyme matches (for multi-syllable patterns)</li>
+      </ul>
+      <p>
+        Conceptually, this corresponds to:
+      </p>
+      <pre><code>score(wᵢ, wⱼ) ≈ vowel_score(T(wᵢ), T(wⱼ)) + tail_score(T(wᵢ), T(wⱼ))</code></pre>
+      <p>
+        The code uses simple floats (0.0–1.0), but the paper abstracts this as a
+        similarity metric over phoneme-tails.
+      </p>
+
+      <h3>3.3 Locality-Aware Grouping (Implemented)</h3>
+      <p>
+        Rhyme grouping is implemented in <code>group_rhymes(lines_tokens, threshold)</code>.
+        Each token is assigned a global position <code>pos</code> and each group stores a
+        list of positions. The effective score per group is:
+      </p>
+      <pre><code>effective = rhyme_similarity(phones, proto) - α * locality_penalty(pos, positions)</code></pre>
+      <p>
+        where <code>locality_penalty</code> returns a normalized distance to the nearest
+        existing occurrence in that group. This is the concrete version of:
+      </p>
+      <pre><code>eff(wₜ, g) = sim(T(wₜ), C_g) - λ · dist(t, μ_g)</code></pre>
+      <p>
+        Groups are chosen by maximizing <code>effective</code>, or a new group is created
+        if <code>effective &lt; threshold</code>.
+      </p>
+
+      <h3>3.4 Probabilistic Interpretation (Not Yet Implemented)</h3>
+      <p>
+        The HMM/CRF model described in the paper (with hidden rhyme labels
+        \(z_t\) and potentials over tails and local neighborhoods) is not yet
+        implemented. It is a formalization of what the greedy grouping is
+        approximating:
+      </p>
+      <pre><code>p(z₁:T | tails) ∝ ∏ₜ exp(ψₜ(zₜ) + ψₜ,ₜ₊₁(zₜ, zₜ₊₁))</code></pre>
+      <p>
+        The current code relies on a fast greedy assignment rather than
+        Viterbi/CRF inference.
+      </p>
+    </section>
+
+    <!-- ALIGNMENT ENGINE -->
+    <section class="section">
+      <h2>4. Alignment Engine</h2>
+      <p>
+        The alignment pipeline lives in <code>auto_align.py</code>. It does:
+      </p>
+      <ol>
+        <li><strong>Whisper transcription</strong> with <code>word_timestamps=True</code>.</li>
+        <li><strong>ASR word sequence</strong> via <code>build_asr_word_sequence</code>.</li>
+        <li><strong>Lyrics word sequence</strong> via <code>build_lyrics_word_sequence</code>.</li>
+        <li><strong>Alignment</strong> via <code>align_word_sequences</code> using <code>difflib.SequenceMatcher</code>.</li>
+      </ol>
+      <p>
+        <code>SequenceMatcher</code> approximates the dynamic programming alignment used
+        in classical ASR, giving a mapping from each lyric word index to an ASR
+        word index (or <code>None</code> if unaligned). This mapping is then used to
+        copy Whisper’s timestamps onto the lyric tokens.
+      </p>
+
+      <h3>4.1 Alignment Matrix (Conceptual)</h3>
+      <pre><code>                 User Lyrics (reference)
+          ┌───────────────────────────────────────────┐
+          │  w₁    w₂    w₃    w₄    w₅    ...    w_M │
+┌─────────┼───────────────────────────────────────────┤
+│ a₁      │  0     1     ∞     ∞     ∞           ∞    │
+│ a₂      │  1     0.2   0.9   ∞     ∞           ∞    │
+│ a₃      │  ∞     0.1   0     1.2   2.1         ∞    │  (ASR tokens)
+│ a₄      │  ∞     ∞     0.3   0     0.4         3    │
+│ …       │  …     …     …     …     …           …    │
+└─────────┴───────────────────────────────────────────┘</code></pre>
+    </section>
+
+    <!-- CINEMATIC RENDERER -->
+    <section class="section">
+      <h2>5. Cinematic Renderer</h2>
+      <p>
+        The cinematic renderer is implemented in <code>capture.html</code>. It:
+      </p>
+      <ul>
+        <li>Accepts audio path + aligned entries from the backend.</li>
+        <li>Constructs a fixed-size (1280×720) DOM with rhyme-colored tokens.</li>
+        <li>Implements smooth vertical scroll tied to the current time.</li>
+        <li>Assigns a glow and focus state to the active word.</li>
+        <li>Exposes <code>window.capturePlayer</code> with:
+          <code>setTime(t)</code>, <code>getDuration()</code>, and <code>update()</code>.
+        </li>
+      </ul>
+      <p>
+        The <code>capture_video.py</code> script drives this by repeatedly calling
+        <code>capturePlayer.setTime(t)</code>, taking screenshots with Playwright,
+        and then passing the PNG sequence to ffmpeg to build the final MP4.
+      </p>
+
+      <h3>5.1 Cinematic Architecture (Mermaid)</h3>
+      <pre><code class="language-mermaid">flowchart TD
+
+    subgraph Backend
+      RC["rhyme_core.py &amp; auto_align.py"] --> SAJ["Structured Alignment JSON"]
+    end
+
+    subgraph HTMLRenderer [/capture (HTML/CSS/JS)/]
+      SAJ --> DOM["DOM Tokens&lt;br/&gt;&lt;span data-group data-emphasis data-start data-end&gt;"]
+      DOM --> JS["window.capturePlayer&lt;br/&gt;.setTime(t), .getDuration()"]
+    end
+
+    subgraph CapturePipeline
+      JS --> PW["Playwright (Chromium)"]
+      PW --> FR["frame_00000.png&lt;br/&gt;frame_00001.png&lt;br/&gt;..."]
+    end
+
+    FR --> FF["ffmpeg"]
+    FF --> MP4["output_cinematic.mp4"]</code></pre>
+    </section>
+
+    <!-- RELATED WORK -->
+    <section class="section">
+      <h2>6. Related Work</h2>
+      <p><strong>Text-Only Rhyme Analyzers.</strong> Many systems operate purely over text, using CMUdict and deterministic suffix rules to identify rhyme families and measure rhyme density. They do not incorporate performance timing or treat rhyme as a time-dependent phenomenon. RHYME CTRL differs in that it anchors rhyme in time via word timestamps.</p>
+      <p><strong>Lyric Synchronization (Karaoke Systems).</strong> Classical approaches use HMMs or DTW-based forced alignment between audio features and phoneme sequences. These systems produce word timings but typically do not model rhyme structure or offer rich visual semantics. RHYME CTRL builds on similar alignment primitives but layers a rhyme-centric visual semantics on top.</p>
+      <p><strong>Rap Rhyme Density Tools.</strong> Tools like Raplyzer or DeepRhyme evaluate rhyme density and internal rhymes from text alone. They treat rhyme as a static property of a lyric snippet. RHYME CTRL extends this paradigm to continuous time and multi-view visualization (text, perform, capture), providing a time-synchronous view of rhyme patterns.</p>
+      <p><strong>Poetry Visualization.</strong> Static visualizations of rhyme schemes, stress patterns, or prosodic structures exist in the literature, but rarely as cinematic, time-synchronized videos. RHYME CTRL contributes a full-stack approach from raw audio to stylized video exports.</p>
+    </section>
+
+    <!-- COMPLEXITY -->
+    <section class="section">
+      <h2>7. Complexity Analysis</h2>
+      <p>
+        Let:
+      </p>
+      <ul>
+        <li>\(N\): number of lyric tokens (words)</li>
+        <li>\(S\): number of ASR tokens (Whisper outputs)</li>
+        <li>\(G\): number of rhyme groups</li>
+        <li>\(T\): audio duration in seconds</li>
+        <li>\(\text{fps}\): frames per second for video capture</li>
+        <li>\(F = T \cdot \text{fps}\): total frames</li>
+      </ul>
+
+      <h3>7.1 Whisper Transcription</h3>
+      <p>
+        Whisper’s transformer model dominates runtime. Complexity is roughly:
+      </p>
+      <pre><code>O(AudioLength × d²)</code></pre>
+      <p>
+        for model dimension <code>d</code>. We treat this as a black-box cost.
+      </p>
+
+      <h3>7.2 ASR ↔ Lyrics Alignment</h3>
+      <p>
+        <code>align_word_sequences</code> uses <code>difflib.SequenceMatcher</code>
+        on sequences of length <code>N</code> and <code>S</code>. Worst-case:
+      </p>
+      <pre><code>O(N × S)</code></pre>
+
+      <h3>7.3 Rhyme Grouping</h3>
+      <p>
+        For each token:
+      </p>
+      <ul>
+        <li>Phoneme lookup: <code>O(1)</code></li>
+        <li>Tail similarity: <code>O(L)</code> with small constant tail length <code>L</code></li>
+        <li>Compare to all groups: <code>O(G)</code> per token</li>
+      </ul>
+      <p>
+        Total:
+      </p>
+      <pre><code>O(N × G)</code></pre>
+
+      <h3>7.4 HTML Rendering</h3>
+      <p>
+        In <code>/perform</code>, each update toggles classes for one line and one word,
+        plus a scroll. This is effectively <code>O(1)</code> per frame.
+      </p>
+
+      <h3>7.5 Cinematic Capture</h3>
+      <p>
+        For cinematic capture:
+      </p>
+      <pre><code>F = T × fps</code></pre>
+      <p>
+        For each frame:
+      </p>
+      <ul>
+        <li>JS update via <code>setTime(t)</code>: <code>O(1)</code></li>
+        <li>Screenshot: <code>O(W × H)</code> pixels (fixed at 1280×720)</li>
+      </ul>
+      <p>
+        ffmpeg encoding similarly scales with <code>O(F × frame_size)</code>.
+      </p>
+
+      <h3>7.6 Summary</h3>
+      <p>
+        Ignoring Whisper’s model cost, the overall complexity is:
+      </p>
+      <pre><code>O(N × S) + O(N × G) + O(F × W × H)</code></pre>
+      <p>
+        which is linear in text size and video length for realistic song-scale inputs.
+      </p>
+    </section>
+
+    <!-- CONCLUSION -->
+    <section class="section">
+      <h2>8. Conclusion</h2>
+      <p>
+        RHYME CTRL combines DSP, NLP, computational phonology, alignment, and
+        cinematic rendering into a cohesive system for rap analysis. It treats
+        rhyme as a time-synchronous, vowel-centric phenomenon and integrates
+        it into a multi-view interface: text mode, auto-align mode, performance
+        mode, finetune mode, and a dedicated cinematic capture mode.
+      </p>
+      <p>
+        The implemented rhyme-tail and locality-aware grouping provide a
+        practical approximation to a more general HMM/CRF rhyme-labeling model,
+        and the HTML-based renderer offers a flexible, high-fidelity medium for
+        producing publishable lyric videos. The structure of the code and the
+        abstractions introduced here make RHYME CTRL both a production-ready
+        tool and a research platform for future work in rap rhyme modeling,
+        flow analysis, and prosodic visualization.
+      </p>
+    </section>
+
+  </div>
+</body>
+</html>

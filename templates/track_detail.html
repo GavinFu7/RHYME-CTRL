@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRACK {{ track.id }} — Rap Rhyme Highlighter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="back-link">
+        <a href="{{ url_for('tracks_list') }}">Back to tracks</a>
+      </div>
+
+      <h1>TRACK <em style="font-family: var(--font-serif); color: var(--fg-dim);">#{{ track.id }}</em></h1>
+      <p class="subtitle">
+        Mode: {{ track.mode }} · Session: {{ track.session_id }} · Audio: {{ track.audio_filename }} · Threshold: {{ track.threshold }} · Created: {{ track.created_at }}
+      </p>
+
+      <section class="section">
+        <h2>Lyrics</h2>
+        <pre>{{ track.lyrics }}</pre>
+      </section>
+
+      <section class="section">
+        <h2>Entries (raw JSON)</h2>
+        <pre>{{ track.entries | tojson(indent=2) }}</pre>
+      </section>
+    </div>
+  </body>
+</html>

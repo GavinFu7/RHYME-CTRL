@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Capture View — Rhyme Highlighter</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+      :root {
+        --bg: #000000;
+        --fg: #ffffff;
+        --fg-dim: #999999;
+        --fg-muted: #444444;
+        
+        /* Bright, saturated rhyme colors */
+        --rhyme-0: #4a9eff;
+        --rhyme-1: #ff9500;
+        --rhyme-2: #34c759;
+        --rhyme-3: #ff3b30;
+        --rhyme-4: #af52de;
+        --rhyme-5: #a2845e;
+        --rhyme-6: #ff2d92;
+        --rhyme-7: #8e8e93;
+        --rhyme-8: #ffd60a;
+        --rhyme-9: #5ac8fa;
+        --rhyme-10: #ff6961;
+        --rhyme-11: #b388ff;
+        
+        --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+        --font-display: 'Playfair Display', Georgia, serif;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font-mono);
+      }
+
+      .capture-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 70px 60px 50px 60px;
+        position: relative;
+      }
+
+      audio { display: none; }
+
+      .title-card {
+        position: absolute;
+        top: 25px;
+        left: 60px;
+      }
+
+      .title-card h1 {
+        font-family: var(--font-display);
+        font-size: 1.2rem;
+        font-weight: 400;
+        font-style: italic;
+        color: var(--fg-dim);
+      }
+
+      .lyrics-viewport {
+        width: 100%;
+        height: 560px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .lyrics-scroll {
+        width: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        /* JavaScript will control the transform */
+      }
+
+      /* Base line style - dim by default */
+      .lyric-line {
+        width: 100%;
+        text-align: center;
+        font-size: 1.65rem;
+        line-height: 1.85;
+        padding: 8px 20px;
+        opacity: 0.2;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+      }
+
+      /* Active line - FULLY BRIGHT */
+      .lyric-line.active {
+        opacity: 1 !important;
+        transform: scale(1.02);
+      }
+
+      /* Adjacent lines */
+      .lyric-line.prev,
+      .lyric-line.next {
+        opacity: 0.45;
+      }
+
+      .lyric-line.visible {
+        opacity: 0.3;
+      }
+
+      /* Word styling */
+      .word {
+        display: inline-block;
+        padding: 4px 8px;
+        margin: 2px 3px;
+        border-radius: 4px;
+        color: #fff;
+        font-weight: 500;
+        transition: all 0.12s ease;
+      }
+
+      /* Rhyme colors */
+      .word[data-group="0"] { background: var(--rhyme-0); }
+      .word[data-group="1"] { background: var(--rhyme-1); }
+      .word[data-group="2"] { background: var(--rhyme-2); }
+      .word[data-group="3"] { background: var(--rhyme-3); }
+      .word[data-group="4"] { background: var(--rhyme-4); }
+      .word[data-group="5"] { background: var(--rhyme-5); }
+      .word[data-group="6"] { background: var(--rhyme-6); }
+      .word[data-group="7"] { background: var(--rhyme-7); }
+      .word[data-group="8"] { background: var(--rhyme-8); color: #000; }
+      .word[data-group="9"] { background: var(--rhyme-9); }
+      .word[data-group="10"] { background: var(--rhyme-10); }
+      .word[data-group="11"] { background: var(--rhyme-11); }
+      
+      .word:not([data-group]) {
+        background: rgba(255,255,255,0.2);
+      }
+
+      /* Active word - white glow */
+      .word.active {
+        background: #fff !important;
+        color: #000 !important;
+        transform: scale(1.2);
+        box-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(255,255,255,0.4);
+        font-weight: 700;
+        z-index: 10;
+        position: relative;
+      }
+
+      .progress-container {
+        position: absolute;
+        bottom: 30px;
+        left: 60px;
+        right: 60px;
+        height: 4px;
+        background: #333;
+        border-radius: 2px;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background: #fff;
+        width: 0%;
+        border-radius: 2px;
+      }
+
+      .timestamp {
+        position: absolute;
+        bottom: 40px;
+        right: 60px;
+        font-size: 0.9rem;
+        color: var(--fg-dim);
+      }
+
+      /* Debug panel - set display:block to see it */
+      .debug-panel {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0,0,0,0.8);
+        color: #0f0;
+        font-size: 0.7rem;
+        padding: 8px;
+        border: 1px solid #0f0;
+        z-index: 1000;
+        display: none; /* Change to 'block' to debug */
+      }
+
+      /* Setup form styles */
+      .setup-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 60px;
+        background: #000;
+      }
+      .setup-container h1 {
+        font-family: var(--font-display);
+        font-size: 2rem;
+        margin-bottom: 30px;
+        color: #fff;
+      }
+      .setup-container form {
+        width: 100%;
+        max-width: 500px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .setup-container label {
+        display: block;
+        margin-bottom: 4px;
+        color: #888;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+      }
+      .setup-container input,
+      .setup-container textarea {
+        width: 100%;
+        padding: 8px;
+        background: #111;
+        border: 1px solid #333;
+        color: #fff;
+        font-family: var(--font-mono);
+      }
+      .setup-container button {
+        padding: 12px 24px;
+        background: transparent;
+        border: 1px solid #fff;
+        color: #fff;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    {% if not entries %}
+    <div class="setup-container">
+      <h1>Capture Setup</h1>
+      <form method="POST" enctype="multipart/form-data">
+        <div>
+          <label>Audio File</label>
+          <input type="file" name="audio" id="audio" accept="audio/*" />
+        </div>
+        <div>
+          <label>Title (optional)</label>
+          <input type="text" name="title" id="title" placeholder="Song title" />
+        </div>
+        <div>
+          <label>Lyrics</label>
+          <textarea name="lyrics" id="lyrics" rows="10" placeholder="Paste lyrics here..."></textarea>
+        </div>
+        <div>
+          <label>Rhyme Threshold</label>
+          <input type="number" name="threshold" id="threshold" value="0.6" min="0" max="1" step="0.05" style="width:100px" />
+        </div>
+        <button type="submit">Generate Capture View</button>
+        {% if error %}<p style="color:#f66">{{ error }}</p>{% endif %}
+      </form>
+    </div>
+    {% else %}
+    <div class="capture-container">
+      <audio id="audio-player">
+        <source src="{{ audio_url }}" />
+      </audio>
+
+      {% if title %}
+      <div class="title-card">
+        <h1>{{ title }}</h1>
+      </div>
+      {% endif %}
+
+      <div class="lyrics-viewport" id="viewport">
+        <div class="lyrics-scroll" id="lyrics-scroll">
+          {% for line in entries %}
+          <div class="lyric-line" 
+               data-index="{{ loop.index0 }}"
+               data-start="{{ '%.3f' % line.start }}"
+               data-end="{{ '%.3f' % line.end }}">
+            {% for word in line.words %}
+            <span class="word"
+                  data-start="{{ '%.3f' % word.start }}"
+                  data-end="{{ '%.3f' % word.end }}"
+                  {% if word.group is not none %}data-group="{{ word.group % 12 }}"{% endif %}>{{ word.text }}</span>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="timestamp" id="timestamp">00:00.000</div>
+      <div class="debug-panel" id="debug-panel">Loading...</div>
+    </div>
+
+    <script>
+    (function() {
+      const scroll = document.getElementById('lyrics-scroll');
+      const viewport = document.getElementById('viewport');
+      const lines = Array.from(document.querySelectorAll('.lyric-line'));
+      const words = Array.from(document.querySelectorAll('.word'));
+      const progressBar = document.getElementById('progress-bar');
+      const timestampEl = document.getElementById('timestamp');
+      const audio = document.getElementById('audio-player');
+      const debugPanel = document.getElementById('debug-panel');
+
+      let duration = 120;
+      let currentActiveIdx = 0;
+      const LINE_HEIGHT = 70;
+      const VIEWPORT_HEIGHT = 560;
+
+      console.log('[Capture] Init:', lines.length, 'lines,', words.length, 'words');
+
+      // Collect all timing data for debugging
+      const lineTimings = lines.map((line, i) => ({
+        index: i,
+        start: parseFloat(line.dataset.start) || 0,
+        end: parseFloat(line.dataset.end) || 0
+      }));
+      console.log('[Capture] Line timings:', lineTimings);
+
+      function formatTime(t) {
+        const m = Math.floor(t / 60);
+        const s = Math.floor(t % 60);
+        const ms = Math.floor((t % 1) * 1000);
+        return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+      }
+
+      function findActiveLineIndex(t) {
+        if (lines.length === 0) return 0;
+
+        // Find line where t falls within [start, end]
+        for (let i = 0; i < lines.length; i++) {
+          const start = parseFloat(lines[i].dataset.start) || 0;
+          const end = parseFloat(lines[i].dataset.end) || start + 2;
+          if (t >= start && t <= end) {
+            return i;
+          }
+        }
+
+        // If between lines, find the last line whose start time has passed
+        let lastIdx = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const start = parseFloat(lines[i].dataset.start) || 0;
+          if (t >= start) {
+            lastIdx = i;
+          } else {
+            break;
+          }
+        }
+        return lastIdx;
+      }
+
+      function update(t) {
+        if (typeof t !== 'number' || isNaN(t)) t = 0;
+
+        // UI updates
+        timestampEl.textContent = formatTime(t);
+        if (duration > 0) {
+          progressBar.style.width = (t / duration * 100) + '%';
+        }
+
+        const activeIdx = findActiveLineIndex(t);
+        currentActiveIdx = activeIdx;
+
+        // Debug panel update
+        if (debugPanel) {
+          const lineInfo = lineTimings[activeIdx] || {start: 0, end: 0};
+          debugPanel.innerHTML = `t=${t.toFixed(2)}<br>active=${activeIdx}<br>line[${activeIdx}]: ${lineInfo.start.toFixed(2)}-${lineInfo.end.toFixed(2)}`;
+        }
+
+        // Update line classes
+        lines.forEach((line, idx) => {
+          line.classList.remove('active', 'prev', 'next', 'visible');
+          
+          const dist = idx - activeIdx;
+          if (dist === 0) {
+            line.classList.add('active');
+          } else if (dist === -1) {
+            line.classList.add('prev');
+          } else if (dist === 1) {
+            line.classList.add('next');
+          } else if (Math.abs(dist) <= 3) {
+            line.classList.add('visible');
+          }
+        });
+
+        // Update word highlights
+        words.forEach(word => {
+          word.classList.remove('active');
+          const ws = parseFloat(word.dataset.start) || 0;
+          const we = parseFloat(word.dataset.end) || ws + 0.1;
+          if (t >= ws && t <= we) {
+            word.classList.add('active');
+          }
+        });
+
+        // Scroll to center active line in viewport
+        // VIEWPORT_HEIGHT = 520px, we want active line at vertical center (~260px from top)
+        // activeLineTop is where the line starts (0 for first line, LINE_HEIGHT for second, etc.)
+        // We need to shift so that activeLineTop appears at VIEWPORT_HEIGHT/2
+        const centerY = VIEWPORT_HEIGHT / 2;
+        const activeLineCenter = (activeIdx * LINE_HEIGHT) + (LINE_HEIGHT / 2);
+        const scrollY = activeLineCenter - centerY;
+        scroll.style.transform = `translateY(${-scrollY}px)`;
+      }
+
+      // Expose API
+      window.capturePlayer = {
+        setTime: function(t) {
+          update(t);
+        },
+        getDuration: function() {
+          return duration;
+        },
+        setDuration: function(d) {
+          duration = d;
+        },
+        getTimings: function() {
+          return lineTimings;
+        }
+      };
+
+      // Audio events for live preview
+      audio.addEventListener('loadedmetadata', function() {
+        if (audio.duration && !isNaN(audio.duration)) {
+          duration = audio.duration;
+        }
+        update(0);
+      });
+
+      audio.addEventListener('timeupdate', function() {
+        update(audio.currentTime);
+      });
+
+      // Initial state
+      update(0);
+      console.log('[Capture] Ready. First 5 line timings:', lineTimings.slice(0, 5));
+    })();
+    </script>
+    {% endif %}
+  </body>
+</html>
