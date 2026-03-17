@@ -1,0 +1,8 @@
+# python bytecode cache
+__pycache__/
+
+# data files
+data/
+
+# upload files
+static/
