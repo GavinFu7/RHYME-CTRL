@@ -53,6 +53,17 @@
                 value="{{ '%.2f' % threshold }}"
               />
             </div>
+            <div class="control-group">
+              <label for="language">
+                LANGUAGE
+                <span class="hint">(for better ASR accuracy)</span>
+              </label>
+              <select id="language" name="language">
+                <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
+                <option value="yue" {% if language == 'yue' %}selected{% endif %}>Cantonese (粵語)</option>
+                <!-- Add more languages here as needed -->
+              </select>
+            </div>
             <button type="submit">UPLOAD & FINETUNE</button>
           </div>
 

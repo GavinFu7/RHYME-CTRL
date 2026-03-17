@@ -1,6 +1,7 @@
 import re
 import difflib
 from typing import List, Dict, Optional
+from pypinyin import pinyin, Style
 
 import whisper
 
@@ -12,7 +13,7 @@ def normalize_token(t: str) -> str:
       - strip non-alphanumeric
     """
     t = t.lower()
-    t = re.sub(r"[^a-z0-9]+", "", t)
+    t = re.sub(r"[^a-z0-9 ]+", "", t)
     return t
 
 
@@ -31,11 +32,12 @@ def transcribe_with_words(
         audio_path,
         language=language,
         word_timestamps=True,
+        temperature=0.0,
     )
     return result
 
 
-def build_asr_word_sequence(whisper_result) -> List[Dict]:
+def build_asr_word_sequence(whisper_result, language: str = "en") -> List[Dict]:
     """
     Flatten Whisper segments into a sequence of ASR words:
 
@@ -51,9 +53,17 @@ def build_asr_word_sequence(whisper_result) -> List[Dict]:
             raw = w.get("word", "").strip()
             if not raw:
                 continue
-            norm = normalize_token(raw)
+            pinyin_str = ''
+            if language == "yue":
+                # pinyin returns a list of lists, need to flatten it
+                pinyin_list = pinyin(raw, style=Style.FINALS_TONE2, heteronym=False)
+                pinyin_str = " ".join([p[0] if p else "" for p in pinyin_list])
+                norm = normalize_token(pinyin_str)
+            else:
+                norm = normalize_token(raw)
             if not norm:
                 continue
+
             words.append(
                 {
                     "raw": raw,
@@ -66,7 +76,7 @@ def build_asr_word_sequence(whisper_result) -> List[Dict]:
     return words
 
 
-def build_lyrics_word_sequence(lyrics_text: str) -> List[Dict]:
+def build_lyrics_word_sequence(lyrics_text: str, language: str = "en") -> List[Dict]:
     """
     Flatten lyrics into a word sequence with line + index information:
 
@@ -86,19 +96,40 @@ def build_lyrics_word_sequence(lyrics_text: str) -> List[Dict]:
         if not stripped:
             continue
         # split on whitespace (you can make this smarter if needed)
-        raw_tokens = line.strip().split()
-        for wi, raw in enumerate(raw_tokens):
-            norm = normalize_token(raw)
-            if not norm:
-                continue
-            words.append(
-                {
-                    "raw": raw,
-                    "norm": norm,
-                    "line": li,
-                    "idx_in_line": wi,
-                }
-            )
+
+        if language == "yue":
+            raw_tokens = list(stripped)
+            for wi, raw in enumerate(raw_tokens):
+                # pinyin returns a list of lists, need to flatten it
+                pinyin_list = pinyin(raw, style=Style.FINALS_TONE2, heteronym=False)
+                pinyin_str = " ".join([p[0] if p else "" for p in pinyin_list])
+                norm = normalize_token(pinyin_str)
+                if not norm:
+                    continue
+
+                words.append(
+                    {
+                        "raw": raw,
+                        "norm": norm,
+                        "line": li,
+                        "idx_in_line": wi,
+                    }
+                )
+        else:
+            raw_tokens = stripped.split()
+            for wi, raw in enumerate(raw_tokens):
+                norm = normalize_token(raw)
+                if not norm:
+                    continue
+
+                words.append(
+                    {
+                        "raw": raw,
+                        "norm": norm,
+                        "line": li,
+                        "idx_in_line": wi,
+                    }
+                )
 
     return words
 
@@ -113,6 +144,7 @@ def align_word_sequences(
     Returns:
       mapping: lyric_global_index -> asr_global_index (or None if no match)
     """
+
     lyric_norms = [w["norm"] for w in lyric_words]
     asr_norms = [w["norm"] for w in asr_words]
 
@@ -158,8 +190,8 @@ def auto_align_lyrics_to_audio(
     """
     # 1. Transcribe with word-level timestamps
     result = transcribe_with_words(audio_path, model_name=model_name, language=language)
-    asr_words = build_asr_word_sequence(result)
-    lyric_words = build_lyrics_word_sequence(lyrics_text)
+    asr_words = build_asr_word_sequence(result, language=language)
+    lyric_words = build_lyrics_word_sequence(lyrics_text, language=language)
 
     if not asr_words or not lyric_words:
         # Fallback: no words -> empty entries

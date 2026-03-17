@@ -3,6 +3,11 @@ from werkzeug.utils import secure_filename
 import os
 import whisper
 
+import ssl
+
+# Allow running in environments with strict SSL (e.g. some corporate networks)
+ssl._create_default_https_context = ssl._create_unverified_context
+
 from rhyme_core import process_lyrics, process_entries_with_rhymes
 from auto_align import auto_align_lyrics_to_audio
 from storage import init_db, new_session_id, save_track, list_tracks, load_track
@@ -52,6 +57,7 @@ def text_mode():
     group_to_color = None
     lyrics = ""
     threshold = 0.6
+    language = "en"
 
     if request.method == "POST":
         lyrics = request.form.get("lyrics", "")
@@ -60,6 +66,10 @@ def text_mode():
         except ValueError:
             threshold = 0.6
         threshold = max(0.0, min(1.0, threshold))
+        try:
+            language = request.form.get("language", "en")
+        except ValueError:
+            language = "en"
 
         if lyrics.strip():
             highlighted, group_to_color = process_lyrics(lyrics, threshold)
@@ -68,6 +78,7 @@ def text_mode():
         "index.html",
         lyrics=lyrics,
         threshold=threshold,
+        language=language,
         highlighted=highlighted,
         group_to_color=group_to_color,
     )
@@ -93,6 +104,7 @@ def auto_mode():
     audio_url = None
     lyrics = ""
     threshold = 0.6
+    language = "en"
     error = None
 
     session_id = get_session_id()
@@ -104,6 +116,10 @@ def auto_mode():
         except ValueError:
             threshold = 0.6
         threshold = max(0.0, min(1.0, threshold))
+        try:
+            language = request.form.get("language", "en")
+        except ValueError:
+            language = "en"
 
         audio_file = request.files.get("audio")
         if not audio_file or audio_file.filename == "":
@@ -121,12 +137,20 @@ def auto_mode():
 
             try:
                 # auto_align returns line entries with start/end/text/words
-                entries = auto_align_lyrics_to_audio(
-                    audio_path=audio_path,
-                    lyrics_text=lyrics,
-                    model_name="small",
-                    language="en",
-                )
+                if language == "en":
+                    entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="small",
+                        language="en",
+                    )
+                else:
+                    entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="large",
+                        language=language,
+                    )
             except Exception as e:
                 error = f"Whisper failed: {e}"
 
@@ -163,6 +187,7 @@ def auto_mode():
             error=error,
             lyrics=lyrics,
             threshold=threshold,
+            language=language,
             entries=entries,
             group_to_color=group_to_color,
             audio_url=audio_url,
@@ -188,6 +213,7 @@ def perform_mode():
     audio_url = None
     lyrics = ""
     threshold = 0.6
+    language = "en"
     error = None
 
     session_id = get_session_id()
@@ -199,6 +225,10 @@ def perform_mode():
         except ValueError:
             threshold = 0.6
         threshold = max(0.0, min(1.0, threshold))
+        try:
+            language = request.form.get("language", "en")
+        except ValueError:
+            language = "en"
 
         audio_file = request.files.get("audio")
         if not audio_file or audio_file.filename == "":
@@ -215,12 +245,20 @@ def perform_mode():
             audio_file.save(audio_path)
 
             try:
-                entries = auto_align_lyrics_to_audio(
-                    audio_path=audio_path,
-                    lyrics_text=lyrics,
-                    model_name="small",
-                    language="en",
-                )
+                if language == "en":
+                    entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="small",
+                        language="en",
+                    )
+                else:
+                    entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="large",
+                        language=language,
+                    )
             except Exception as e:
                 error = f"Whisper failed: {e}"
 
@@ -285,6 +323,7 @@ def perform_mode():
             error=error,
             lyrics=lyrics,
             threshold=threshold,
+            language=language,
             entries=entries,
             group_to_color=group_to_color,
             audio_url=audio_url,
@@ -308,6 +347,7 @@ def finetune_mode():
     audio_url = None
     lyrics = ""
     threshold = 0.6
+    language = "en"
     error = None
 
     session_id = get_session_id()
@@ -319,6 +359,10 @@ def finetune_mode():
         except ValueError:
             threshold = 0.6
         threshold = max(0.0, min(1.0, threshold))
+        try:
+            language = request.form.get("language", "en")
+        except ValueError:
+            language = "en"
 
         audio_file = request.files.get("audio")
         if not audio_file or audio_file.filename == "":
@@ -335,12 +379,20 @@ def finetune_mode():
             audio_file.save(audio_path)
 
             try:
-                entries = auto_align_lyrics_to_audio(
-                    audio_path=audio_path,
-                    lyrics_text=lyrics,
-                    model_name="small",
-                    language="en",
-                )
+                if language == "en":
+                    entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="small",
+                        language="en",
+                    )
+                else:
+                    entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="large",
+                        language=language,
+                    )
             except Exception as e:
                 error = f"Whisper failed: {e}"
 
@@ -406,6 +458,7 @@ def finetune_mode():
             error=error,
             lyrics=lyrics,
             threshold=threshold,
+            language=language,
             entries=entries,
             group_to_color=group_to_color,
             audio_url=audio_url,
@@ -479,6 +532,7 @@ def capture_mode():
     """
     entries = None
     audio_url = None
+    language = "en"
     title = None
     error = None
     
@@ -512,6 +566,10 @@ def capture_mode():
             error = "Please upload an audio file."
         elif not allowed_file(audio_file.filename, ALLOWED_AUDIO):
             error = "Unsupported audio format."
+        try:
+            language = request.form.get("language", "en")
+        except ValueError:
+            language = "en"
 
         if not error and not lyrics.strip():
             error = "Please paste the lyrics."
@@ -523,12 +581,20 @@ def capture_mode():
 
             raw_entries = None  # Initialize before try block
             try:
-                raw_entries = auto_align_lyrics_to_audio(
-                    audio_path=audio_path,
-                    lyrics_text=lyrics,
-                    model_name="small",
-                    language="en",
-                )
+                if language == "en":
+                    raw_entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="small",
+                        language="en",
+                    )
+                else:
+                    raw_entries = auto_align_lyrics_to_audio(
+                        audio_path=audio_path,
+                        lyrics_text=lyrics,
+                        model_name="large",
+                        language=language,
+                    )
             except Exception as e:
                 error = f"Whisper failed: {e}"
 
