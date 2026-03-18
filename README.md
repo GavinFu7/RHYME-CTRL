@@ -3,8 +3,6 @@
 這是一個網頁應用程式，基於 [MunamWasi/RHYME-CTRL](https://github.com/MunamWasi/RHYME-CTRL) 修改，加入對廣東話的支持。
 用於英文和廣東話的字幕與音頻對齊。也能分析英文歌詞的押韻結構，並生成帶有即時單詞高亮效果的同步影片。
 
-![Demo Screenshot](docs/demo-screenshot.png)
-
 ## 功能特色
 
 - **音頻與歌詞對齊** — 由 OpenAI Whisper 驅動，實現精準的單詞級時間戳
@@ -29,8 +27,8 @@
 
 ```bash
 # 克隆倉庫
-git clone https://github.com/GavinFu7/RHYME-CTRL.git
-cd RHYME-CTRL
+git clone https://github.com/GavinFu7/SUBTITLE-TIMEALIGN.git
+cd SUBTITLE-TIMEALIGN
 
 # 創建虛擬環境
 python3 -m venv venv
