@@ -1,9 +1,8 @@
 import re
 import difflib
+import whisper
 from typing import List, Dict, Optional
 from pypinyin import pinyin, Style
-
-import whisper
 
 
 def normalize_token(t: str) -> str:
@@ -13,12 +12,13 @@ def normalize_token(t: str) -> str:
       - strip non-alphanumeric
     """
     t = t.lower()
-    t = re.sub(r"[^a-z0-9 ]+", "", t)
+    t = re.sub(r"[^a-z]+", "", t)
     return t
 
 
 def transcribe_with_words(
     audio_path: str,
+    lyrics_text: str,
     model_name: str = "small",
     language: str = "en",
 ):
@@ -27,13 +27,25 @@ def transcribe_with_words(
 
     Requires a recent version of openai-whisper that supports word_timestamps=True.
     """
+
+    prompt = None
+    if language == "yue":
+        sentence = re.split(r'[\s,.!?;:()，。！？；：（）]+', lyrics_text.replace('\n', ' '))
+        sentence = list(set(filter(None, sentence)))
+        if len(sentence) > 70:
+            sentence = sentence[:70]        
+        prompt = " ".join(sentence)
+
     model = whisper.load_model(model_name)
     result = model.transcribe(
         audio_path,
         language=language,
         word_timestamps=True,
+        initial_prompt=prompt,
+        condition_on_previous_text=False,
         temperature=0.0,
     )
+
     return result
 
 
@@ -56,7 +68,7 @@ def build_asr_word_sequence(whisper_result, language: str = "en") -> List[Dict]:
             pinyin_str = ''
             if language == "yue":
                 # pinyin returns a list of lists, need to flatten it
-                pinyin_list = pinyin(raw, style=Style.FINALS_TONE2, heteronym=False)
+                pinyin_list = pinyin(raw, style=Style.TONE3, heteronym=False)
                 pinyin_str = " ".join([p[0] if p else "" for p in pinyin_list])
                 norm = normalize_token(pinyin_str)
             else:
@@ -101,7 +113,7 @@ def build_lyrics_word_sequence(lyrics_text: str, language: str = "en") -> List[D
             raw_tokens = list(stripped)
             for wi, raw in enumerate(raw_tokens):
                 # pinyin returns a list of lists, need to flatten it
-                pinyin_list = pinyin(raw, style=Style.FINALS_TONE2, heteronym=False)
+                pinyin_list = pinyin(raw, style=Style.TONE3, heteronym=False)
                 pinyin_str = " ".join([p[0] if p else "" for p in pinyin_list])
                 norm = normalize_token(pinyin_str)
                 if not norm:
@@ -148,10 +160,10 @@ def align_word_sequences(
     lyric_norms = [w["norm"] for w in lyric_words]
     asr_norms = [w["norm"] for w in asr_words]
 
-    sm = difflib.SequenceMatcher(None, lyric_norms, asr_norms)
+    sm = difflib.SequenceMatcher(None, asr_norms, lyric_norms)
     mapping: Dict[int, Optional[int]] = {i: None for i in range(len(lyric_words))}
 
-    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+    for tag, j1, j2, i1, i2 in sm.get_opcodes():
         if tag in ("equal", "replace"):
             # align as many as min(len1, len2), ignore extras
             length = min(i2 - i1, j2 - j1)
@@ -189,7 +201,7 @@ def auto_align_lyrics_to_audio(
          ]
     """
     # 1. Transcribe with word-level timestamps
-    result = transcribe_with_words(audio_path, model_name=model_name, language=language)
+    result = transcribe_with_words(audio_path, lyrics_text=lyrics_text, model_name=model_name, language=language)
     asr_words = build_asr_word_sequence(result, language=language)
     lyric_words = build_lyrics_word_sequence(lyrics_text, language=language)
 
